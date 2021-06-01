@@ -13,6 +13,10 @@ use ndarray::*;
 use rand::prelude::*;
 use fetish_lib::everything::*;
 
+pub mod parsers;
+pub mod expression;
+pub mod bindings;
+
 fn main() {
     pretty_env_logger::init();
 
