@@ -1,5 +1,6 @@
 use fetish_lib::everything::*;
 use noisy_float::*;
+use std::fmt;
 
 pub enum FuncExpression {
     Func(TermPointer),
@@ -33,6 +34,49 @@ impl AppExpression {
             func_expr : Box::new(func_expr),
             arg_expr : Box::new(arg_expr)
         }
+    }
+}
+
+fn format_term_index(term_index : &TermIndex) -> String {
+    match (term_index) {
+        TermIndex::Primitive(ind) => format!("p{}", ind),
+        TermIndex::NonPrimitive(ind) => format!("n{}", ind)
+    }
+}
+
+fn format_term_ptr(term_ptr : &TermPointer) -> String {
+    let term_ptr_str = format_term_index(&term_ptr.index);
+    format!("#{}{}", term_ptr.type_id, term_ptr_str)
+}
+
+fn format_term_ref(term_ref : &TermReference) -> String {
+    match (term_ref) {
+        TermReference::FuncRef(func_ptr) => format_term_ptr(func_ptr),
+        TermReference::VecRef(type_id, vec) => format!("#{}{}", type_id, vec)
+    }
+}
+
+impl fmt::Display for FuncExpression {
+    fn fmt(&self, f : &mut fmt::Formatter<'_>) -> fmt::Result {
+        match (self) {
+            FuncExpression::Func(term_ptr) => write!(f, "{}", format_term_ptr(term_ptr)),
+            FuncExpression::App(app_expr) => app_expr.fmt(f)
+        }
+    }
+}
+
+impl fmt::Display for Expression {
+    fn fmt(&self, f : &mut fmt::Formatter<'_>) -> fmt::Result {
+        match (self) {
+            Expression::Ref(term_ref) => write!(f, "{}", format_term_ref(term_ref)),
+            Expression::App(app_expr) => app_expr.fmt(f)
+        }
+    }
+}
+
+impl fmt::Display for AppExpression {
+    fn fmt(&self, f : &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({} {})", self.func_expr, self.arg_expr)
     }
 }
 

@@ -15,4 +15,10 @@ impl Bindings {
             Option::Some(result) => Result::Ok(result.clone())
         }
     }
+    
+    pub fn new() -> Bindings {
+        Bindings {
+            bindings : HashMap::new()
+        }
+    }
 }
