@@ -2,16 +2,19 @@ use fetish_lib::everything::*;
 use noisy_float::*;
 use std::fmt;
 
+#[derive(Clone)]
 pub enum FuncExpression {
     Func(TermPointer),
     App(AppExpression)
 }
 
+#[derive(Clone)]
 pub enum Expression {
     Ref(TermReference),
     App(AppExpression)
 }
 
+#[derive(Clone)]
 pub struct AppExpression {
     func_expr : Box<FuncExpression>,
     arg_expr : Box<Expression>
@@ -129,3 +132,47 @@ pub fn build_application(mut expr_vec : Vec<Expression>) -> Result<AppExpression
     }
 }
 
+pub trait EvaluatesExpressions {
+    fn evaluate_app_expression(&mut self, app_expr : AppExpression) -> Result<TermReference, String>;
+    fn evaluate_func_expression(&mut self, func_expr : FuncExpression) -> Result<TermPointer, String>;
+    fn evaluate_expression(&mut self, expr : Expression) -> Result<TermReference, String>;
+}
+
+impl <'a> EvaluatesExpressions for InterpreterAndEmbedderState<'a> {
+    fn evaluate_app_expression(&mut self, app_expr : AppExpression) -> Result<TermReference, String> {
+        let func_expr = *app_expr.func_expr;
+        let arg_expr = *app_expr.arg_expr;
+        
+        let func_ptr = self.evaluate_func_expression(func_expr)?;
+        let arg_ref = self.evaluate_expression(arg_expr)?;
+        let term_app = TermApplication {
+            func_ptr,
+            arg_ref
+        };
+        
+        let result_ref = self.evaluate(&term_app);
+        Result::Ok(result_ref)
+    }
+    fn evaluate_func_expression(&mut self, func_expr : FuncExpression) -> Result<TermPointer, String> {
+        match (func_expr) {
+            FuncExpression::Func(term_ptr) => Result::Ok(term_ptr),
+            FuncExpression::App(app_expr) => {
+                let formatted_app = format!("{}", &app_expr);
+                let result_ref = self.evaluate_app_expression(app_expr)?;
+                match (result_ref) {
+                    TermReference::VecRef(_, _) => {
+                        Result::Err(format!("Expected function, but obtained vector from evaluating {}", 
+                                            formatted_app))
+                    },
+                    TermReference::FuncRef(func_ptr) => Result::Ok(func_ptr)
+                }
+            }
+        }
+    }
+    fn evaluate_expression(&mut self, expr : Expression) -> Result<TermReference, String> {
+        match (expr) {
+            Expression::Ref(term_ref) => Result::Ok(term_ref),
+            Expression::App(app_expression) => self.evaluate_app_expression(app_expression)
+        }
+    }
+}

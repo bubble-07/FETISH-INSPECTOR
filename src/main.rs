@@ -23,6 +23,8 @@ use crate::loading::*;
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
 
+pub mod state;
+pub mod commands;
 pub mod parsers;
 pub mod expression;
 pub mod bindings;
@@ -61,7 +63,7 @@ fn main() {
                         let readline = rl.readline(">> ");
                         match readline {
                             Ok(line) => {
-                                handle_command(line.as_str(), &lib_handle, &mut bindings);
+                                parse_and_handle_command(line.as_str(), &lib_handle, &mut bindings);
                                 rl.add_history_entry(line.as_str());
                             },
                             Err(ReadlineError::Interrupted) => {
@@ -84,15 +86,7 @@ fn main() {
     }
 }
 
-pub fn handle_command<'a>(line : &str, lib_handle : &ContextDefinitionLibraryHandle<'a>,
+pub fn parse_and_handle_command<'a>(line : &str, lib_handle : &ContextDefinitionLibraryHandle<'a>,
                           bindings : &mut Bindings) {
-    let parse_result = parse_s_expression(line, &bindings);
-    match (parse_result) {
-        Result::Ok((expr, _)) => {
-            println!("{}", expr);
-        },
-        Result::Err(err) => {
-            println!("Error: {}", err);
-        }
-    }
+    
 }
