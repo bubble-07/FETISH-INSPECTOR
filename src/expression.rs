@@ -40,19 +40,19 @@ impl AppExpression {
     }
 }
 
-fn format_term_index(term_index : &TermIndex) -> String {
+pub fn format_term_index(term_index : &TermIndex) -> String {
     match (term_index) {
         TermIndex::Primitive(ind) => format!("p{}", ind),
         TermIndex::NonPrimitive(ind) => format!("n{}", ind)
     }
 }
 
-fn format_term_ptr(term_ptr : &TermPointer) -> String {
+pub fn format_term_ptr(term_ptr : &TermPointer) -> String {
     let term_ptr_str = format_term_index(&term_ptr.index);
     format!("#{}{}", term_ptr.type_id, term_ptr_str)
 }
 
-fn format_term_ref(term_ref : &TermReference) -> String {
+pub fn format_term_ref(term_ref : &TermReference) -> String {
     match (term_ref) {
         TermReference::FuncRef(func_ptr) => format_term_ptr(func_ptr),
         TermReference::VecRef(type_id, vec) => format!("#{}{}", type_id, vec)

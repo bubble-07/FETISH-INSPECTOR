@@ -2,6 +2,7 @@ use std::fs;
 use crate::bindings::*;
 use crate::state::*;
 use crate::parsers::*;
+use crate::expression::*;
 use fetish_lib::everything::*;
 
 pub enum Command {
@@ -9,7 +10,8 @@ pub enum Command {
     Parse(String),
     GenerateContextFromPath(String),
     LoadContextFromPath(String),
-    UnloadContext
+    UnloadContext,
+    Help
 }
 
 pub enum ContextualCommand {
@@ -30,7 +32,8 @@ impl Command {
             Command::Parse(text) => handle_parse(text, &glob_state.bindings),
             Command::GenerateContextFromPath(path) => handle_generate_context(path, glob_state),
             Command::LoadContextFromPath(path) => handle_load_context(path, glob_state),
-            Command::UnloadContext => glob_state.unload_context()
+            Command::UnloadContext => glob_state.unload_context(),
+            Command::Help => handle_help()
         }
     }
 }
@@ -66,6 +69,22 @@ impl ContextualCommand {
     }
 }
 
+pub fn handle_help() {
+    println!("generate_context [path]: Generates a Context from the path to json-ized Params to generate it from");
+    println!("load_context [path]: Loads a json-ized Context from the given path");
+    println!("unload_context: Unloads the current Context");
+    println!("list_types: Lists all types matching type numbers to their definitions");
+    println!("parse [expr]: Parses the given s-expression, and renders what it parsed as");
+    println!("let [var] = [expr]: Evaluates the expression, and binds it to the given variable");
+    println!("eval [expr] | evaluate [expr]: Evaluates the expression, and prints the result");
+    println!("simulate [expr] | sim [expr]: Simulates the given expression [via a drawn sample], and prints the result");
+    println!("list_primitive_terms [type_num] | list_prim_terms [type_num]: Lists the primitive terms of the type with the given number");
+    println!("save_context [path]: Saves the current Context, json-ized, to the given path");
+    println!("load_models [path]: Loads the jsonized interpreter+embedder state from the given path");
+    println!("save_models [path]: Saves the interpreter+embedder state as json to the given path");
+    println!("help: Prints this help screen");
+}
+
 pub fn handle_save_models(path : String, context_state : &ContextState) {
     //TODO: implement
     panic!();
@@ -76,10 +95,6 @@ pub fn handle_load_models(path : String, context_state : &mut ContextState, bind
     panic!();
 }
 
-pub fn handle_save_context(path : String, context_state : &ContextState) {
-    //TODO: implement
-    panic!();
-}
 
 pub fn handle_list_primitive_terms(type_text : String, context_state : &ContextState) {
     let maybe_type_number = type_text.trim().parse::<usize>();
@@ -120,27 +135,69 @@ pub fn handle_evaluate(expr_text : String, context_state : &mut ContextState, bi
 
 pub fn handle_let(var_text : String, expr_text : String, 
                   context_state : &mut ContextState, bindings : &mut Bindings) {
-    let parse_result = parse_s_expression(&expr_text, &*bindings);
+    let parse_result = parse_atom(&expr_text, &*bindings);
     match (parse_result) {
         Result::Err(err) => {
             println!("Let: Expression Parsing Error: {}", err);
         },
-        Result::Ok((app_expr, _)) => {
-            let maybe_result_ref = context_state.eval(app_expr);            
+        Result::Ok((expr, _)) => {
+            let maybe_result_ref = context_state.eval(expr);            
             match (maybe_result_ref) {
                 Result::Err(err) => {
                     println!("Let: Expression Evaluation Error: {}", err);
                 },
                 Result::Ok(result_ref) => {
+                    let result_string = format_term_ref(&result_ref);
                     bindings.write(var_text, result_ref);
+                    println!("{}", &result_string);
                 }
             }
         }
     }
 }
 
+pub fn handle_save_context(path : String, context_state : &ContextState) {
+    let maybe_write_result = write_to_path(path, &context_state.ctxt_json); 
+    match (maybe_write_result) {
+        Result::Ok(_) => {
+            println!("Successfully wrote out context JSON");
+        },
+        Result::Err(err) => {
+            println!("Failed to write out context JSON: {}", err);
+        }
+    }
+}
+
+pub fn write_to_path(path : String, text : &str) -> Result<(), String> {
+    let maybe_canonical_path = fs::canonicalize(path);
+    match (maybe_canonical_path) {
+        Result::Ok(canonical_path) => {
+            let maybe_write_result = fs::write(canonical_path, text);
+            match (maybe_write_result) {
+                Result::Ok(_) => Result::Ok(()),
+                Result::Err(err) => Result::Err(format!("Writing Error: {}", err))
+            }
+        },
+        Result::Err(err) => Result::Err(format!("Path Resolution Error: {}", err))
+    }
+}
+
+pub fn read_from_path(path : String) -> Result<String, String> {
+    let maybe_canonical_path = fs::canonicalize(path);
+    match (maybe_canonical_path) {
+        Result::Ok(canonical_path) => {
+            let maybe_path_contents = fs::read_to_string(canonical_path);
+            match (maybe_path_contents) {
+                Result::Ok(path_contents) => Result::Ok(path_contents),
+                Result::Err(err) => Result::Err(format!("Read Error: {}", err))
+            }
+        },
+        Result::Err(err) => Result::Err(format!("Path Resolution Error: {}", err))
+    }
+}
+
 pub fn handle_load_context(path : String, glob_state : &mut GlobalState) {
-    let maybe_path_contents = fs::read_to_string(path);
+    let maybe_path_contents = read_from_path(path);
     match (maybe_path_contents) {
         Result::Err(err) => {
             println!("Load Context: IO Error: {}", err);
@@ -152,7 +209,7 @@ pub fn handle_load_context(path : String, glob_state : &mut GlobalState) {
                     println!("Load Context: JSON Error: {}", err);
                 },
                 Result::Ok(context) => {
-                    glob_state.set_context(context);
+                    glob_state.set_context(path_contents, context);
                 }
             }
         }
@@ -160,7 +217,7 @@ pub fn handle_load_context(path : String, glob_state : &mut GlobalState) {
 }
 
 pub fn handle_generate_context(path : String, glob_state : &mut GlobalState) {
-    let maybe_path_contents = fs::read_to_string(path);    
+    let maybe_path_contents = read_from_path(path);
     match (maybe_path_contents) {
         Result::Err(err) => {
             println!("Generate Context: IO Error: {}", err);
@@ -178,7 +235,7 @@ pub fn handle_generate_context(path : String, glob_state : &mut GlobalState) {
                             println!("Generate Context (Deserialize): JSON Error: {}", err);
                         },
                         Result::Ok(context) => {
-                            glob_state.set_context(context);
+                            glob_state.set_context(context_json, context);
                         }
                     }
                 }
