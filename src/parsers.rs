@@ -3,6 +3,60 @@ use ndarray::*;
 use noisy_float::prelude::*;
 use crate::expression::*;
 use crate::bindings::*;
+use crate::commands::*;
+
+pub fn parse_command_line(text : &str) -> Result<Command, String> {
+    let trimmed_text = text.trim();
+    let maybe_split_text = trimmed_text.split_once(' ');
+    match (maybe_split_text) {
+        Option::Some((command_text, rest_text)) => {
+            let trimmed_rest = rest_text.trim();
+            parse_argumented_command(command_text, trimmed_rest)
+        },
+        Option::None => {
+            parse_primitive_command(trimmed_text) 
+        }
+    }
+}
+
+pub fn parse_primitive_command(command_text : &str) -> Result<Command, String> {
+    match (command_text) {
+        "unload_context" => Result::Ok(Command::UnloadContext),
+        "list_types" => Result::Ok(Command::Contextual(ContextualCommand::ListTypes)),
+        _ => Result::Err(format!("{} is not a recognized command (without arguments)", command_text))
+    }
+}
+
+pub fn parse_argumented_command(command_text : &str, trimmed_rest : &str) -> Result<Command, String> {
+    let rest = trimmed_rest.to_owned();
+    match (command_text) {
+        "parse" => Result::Ok(Command::Parse(rest)),
+        "generate_context" => Result::Ok(Command::GenerateContextFromPath(rest)),
+        "load_context" => Result::Ok(Command::LoadContextFromPath(rest)),
+        "let" => parse_let(trimmed_rest),
+        "evaluate" | "eval" => Result::Ok(Command::Contextual(ContextualCommand::Evaluate(rest))),
+        "simulate" | "sim" => Result::Ok(Command::Contextual(ContextualCommand::Simulate(rest))),
+        "list_primitive_terms" | "list_prim_terms" => 
+                        Result::Ok(Command::Contextual(ContextualCommand::ListPrimitiveTerms(rest))),
+        "save_context" => Result::Ok(Command::Contextual(ContextualCommand::SaveContextToPath(rest))),
+        "load_models" => Result::Ok(Command::Contextual(ContextualCommand::LoadModelsFromPath(rest))),
+        "save_models" => Result::Ok(Command::Contextual(ContextualCommand::SaveModelsToPath(rest))),
+        _ => Result::Err(format!("{} is not a recognized command (with arguments)", command_text))
+    }
+}
+
+pub fn parse_let(let_body_text : &str) -> Result<Command, String> {
+    let maybe_split = let_body_text.split_once('=');
+    match (maybe_split) {
+        Option::Some((untrimmed_var_text, untrimmed_expr_text)) => {
+            let var_text = untrimmed_var_text.trim();
+            let expr_text = untrimmed_expr_text.trim();
+            Result::Ok(Command::Contextual(ContextualCommand::Let(var_text.to_owned(), expr_text.to_owned())))
+        },
+        Option::None => 
+            Result::Err(format!("Let body {} does not have the format [var] = [expr]", let_body_text))
+    }
+}
 
 ///(_* [func_atom] [arg_atom_1] ... [arg_atom_n] _*)
 pub fn parse_s_expression<'a>(text : &'a str, bindings : &Bindings) -> Result<(AppExpression, &'a str), String> {

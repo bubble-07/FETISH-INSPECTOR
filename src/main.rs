@@ -19,6 +19,8 @@ use crate::bindings::*;
 use std::env;
 use libloading::{Library, Symbol};
 use crate::loading::*;
+use crate::state::*;
+use crate::commands::*;
 
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
@@ -39,7 +41,7 @@ fn main() {
 
     let context_generator_path = &args[1];
 
-    let mut bindings = Bindings::new();
+    let bindings = Bindings::new();
 
     let maybe_lib = unsafe {
         Library::new(context_generator_path)
@@ -58,12 +60,17 @@ fn main() {
                     return;
                 },
                 Result::Ok(lib_handle) => {
+                    let mut glob_state = GlobalState {
+                        bindings,
+                        lib_handle,
+                        maybe_context_state : Option::None
+                    };
                     let mut rl = Editor::<()>::new();
                     loop {
                         let readline = rl.readline(">> ");
                         match readline {
                             Ok(line) => {
-                                parse_and_handle_command(line.as_str(), &lib_handle, &mut bindings);
+                                parse_and_handle_command(line.as_str(), &mut glob_state);
                                 rl.add_history_entry(line.as_str());
                             },
                             Err(ReadlineError::Interrupted) => {
@@ -86,7 +93,14 @@ fn main() {
     }
 }
 
-pub fn parse_and_handle_command<'a>(line : &str, lib_handle : &ContextDefinitionLibraryHandle<'a>,
-                          bindings : &mut Bindings) {
-    
+pub fn parse_and_handle_command<'a>(line : &str, glob_state : &mut GlobalState<'a>) {
+    let maybe_command = parse_command_line(line);
+    match (maybe_command) {
+        Result::Ok(command) => {
+            command.handle_command(glob_state);
+        },
+        Result::Err(command_parsing_error) => {
+            println!("Command parsing error: {}", command_parsing_error);
+        }
+    }
 }
