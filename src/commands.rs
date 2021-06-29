@@ -157,7 +157,7 @@ pub fn handle_let(var_text : String, expr_text : String,
 }
 
 pub fn handle_save_context(path : String, context_state : &ContextState) {
-    let maybe_write_result = write_to_path(path, &context_state.ctxt_json); 
+    let maybe_write_result = write_to_path(&path, &context_state.ctxt_bytes); 
     match (maybe_write_result) {
         Result::Ok(_) => {
             println!("Successfully wrote out context JSON");
@@ -168,11 +168,11 @@ pub fn handle_save_context(path : String, context_state : &ContextState) {
     }
 }
 
-pub fn write_to_path(path : String, text : &str) -> Result<(), String> {
-    let maybe_canonical_path = fs::canonicalize(path);
+pub fn write_to_path(path : &str, contents : &[u8]) -> Result<(), String> {
+    let maybe_canonical_path = shellexpand::full(path);
     match (maybe_canonical_path) {
         Result::Ok(canonical_path) => {
-            let maybe_write_result = fs::write(canonical_path, text);
+            let maybe_write_result = fs::write(&*canonical_path, contents);
             match (maybe_write_result) {
                 Result::Ok(_) => Result::Ok(()),
                 Result::Err(err) => Result::Err(format!("Writing Error: {}", err))
@@ -182,11 +182,11 @@ pub fn write_to_path(path : String, text : &str) -> Result<(), String> {
     }
 }
 
-pub fn read_from_path(path : String) -> Result<String, String> {
-    let maybe_canonical_path = fs::canonicalize(path);
+pub fn read_from_path(path : String) -> Result<Vec<u8>, String> {
+    let maybe_canonical_path = shellexpand::full(&path);
     match (maybe_canonical_path) {
         Result::Ok(canonical_path) => {
-            let maybe_path_contents = fs::read_to_string(canonical_path);
+            let maybe_path_contents = fs::read(&*canonical_path);
             match (maybe_path_contents) {
                 Result::Ok(path_contents) => Result::Ok(path_contents),
                 Result::Err(err) => Result::Err(format!("Read Error: {}", err))
@@ -203,7 +203,7 @@ pub fn handle_load_context(path : String, glob_state : &mut GlobalState) {
             println!("Load Context: IO Error: {}", err);
         },
         Result::Ok(path_contents) => {
-            let maybe_context = glob_state.lib_handle.deserialize_context_json(&path_contents);
+            let maybe_context = glob_state.lib_handle.deserialize_serialized_context(&path_contents);
             match (maybe_context) {
                 Result::Err(err) => {
                     println!("Load Context: JSON Error: {}", err);
@@ -223,13 +223,13 @@ pub fn handle_generate_context(path : String, glob_state : &mut GlobalState) {
             println!("Generate Context: IO Error: {}", err);
         },
         Result::Ok(path_contents) => {
-            let maybe_context_json = glob_state.lib_handle.generate_context_json(&path_contents);
+            let maybe_context_json = glob_state.lib_handle.generate_serialized_context(&path_contents);
             match (maybe_context_json) {
                 Result::Err(err) => {
                     println!("Generate Context (Generate): JSON Error: {}", err);
                 },
                 Result::Ok(context_json) => {
-                    let maybe_context = glob_state.lib_handle.deserialize_context_json(&context_json);
+                    let maybe_context = glob_state.lib_handle.deserialize_serialized_context(&context_json);
                     match (maybe_context) {
                         Result::Err(err) => {
                             println!("Generate Context (Deserialize): JSON Error: {}", err);

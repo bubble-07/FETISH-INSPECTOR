@@ -13,17 +13,17 @@ pub struct GlobalState<'a> {
 
 pub struct ContextState {
     pub ctxt : Context,
-    pub ctxt_json : String,
+    pub ctxt_bytes : Vec<u8>,
     pub interpreter_and_embedder_state : SerializedInterpreterAndEmbedderState
 }
 
 impl ContextState {
-    pub fn new(ctxt_json : String, ctxt : Context) -> ContextState {
+    pub fn new(ctxt_bytes : Vec<u8>, ctxt : Context) -> ContextState {
         let deserialized_interpreter_and_embedder_state = InterpreterAndEmbedderState::new(&ctxt); 
         let interpreter_and_embedder_state = deserialized_interpreter_and_embedder_state.serialize();
         ContextState {
             ctxt,
-            ctxt_json,
+            ctxt_bytes,
             interpreter_and_embedder_state
         }
     }
@@ -63,8 +63,8 @@ impl ContextState {
 }
 
 impl <'a> GlobalState<'a> {
-    pub fn set_context(&mut self, ctxt_json : String, ctxt : Context) {
-        let context_state = ContextState::new(ctxt_json, ctxt); 
+    pub fn set_context(&mut self, ctxt_bytes : Vec<u8>, ctxt : Context) {
+        let context_state = ContextState::new(ctxt_bytes, ctxt); 
         self.maybe_context_state = Option::Some(context_state);
     }
     pub fn unload_context(&mut self) {

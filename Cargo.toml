@@ -29,4 +29,5 @@ rustyline="8.2.0"
 serde={version = "1.0.126", features = ["derive"] }
 serde_json="1.0.59"
 fetish-lib = { path = "../FETISH-RS/" }
+shellexpand="2.1.0"
 libloading = "0.7.0"
