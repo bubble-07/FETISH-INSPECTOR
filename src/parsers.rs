@@ -23,6 +23,7 @@ pub fn parse_primitive_command(command_text : &str) -> Result<Command, String> {
     match (command_text) {
         "unload_context" => Result::Ok(Command::UnloadContext),
         "list_types" => Result::Ok(Command::Contextual(ContextualCommand::ListTypes)),
+        "update_models" => Result::Ok(Command::Contextual(ContextualCommand::UpdateModels)),
         "help" => Result::Ok(Command::Help),
         _ => Result::Err(format!("{} is not a recognized command (without arguments)", command_text))
     }

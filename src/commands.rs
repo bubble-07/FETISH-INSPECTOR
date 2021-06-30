@@ -19,6 +19,7 @@ pub enum ContextualCommand {
     Evaluate(String),
     Simulate(String),
     ListTypes,
+    UpdateModels,
     ListPrimitiveTerms(String),
     SaveContextToPath(String),
     LoadModelsFromPath(String),
@@ -62,7 +63,9 @@ impl ContextualCommand {
                     ContextualCommand::LoadModelsFromPath(path)
                                      => handle_load_models(path, context_state, bindings),
                     ContextualCommand::SaveModelsToPath(path)
-                                     => handle_save_models(path, &*context_state)
+                                     => handle_save_models(path, &*context_state),
+                    ContextualCommand::UpdateModels
+                                     => handle_update_models(context_state)
                 }
             }
         }
@@ -77,6 +80,7 @@ pub fn handle_help() {
     println!("parse [expr]: Parses the given s-expression, and renders what it parsed as");
     println!("let [var] = [expr]: Evaluates the expression, and binds it to the given variable");
     println!("eval [expr] | evaluate [expr]: Evaluates the expression, and prints the result");
+    println!("update_models: Updates the embeddings for all terms with respect to any newly-evaluated terms");
     println!("simulate [expr] | sim [expr]: Simulates the given expression [via a drawn sample], and prints the result");
     println!("list_primitive_terms [type_num] | list_prim_terms [type_num]: Lists the primitive terms of the type with the given number");
     println!("save_context [path]: Saves the current Context, json-ized, to the given path");
@@ -85,14 +89,51 @@ pub fn handle_help() {
     println!("help: Prints this help screen");
 }
 
+pub fn handle_update_models(context_state : &mut ContextState) {
+    context_state.update_models();
+    println!("Models successfully updated");
+}
+
 pub fn handle_save_models(path : String, context_state : &ContextState) {
-    //TODO: implement
-    panic!();
+    let maybe_serialized_models = bincode::serialize(&context_state.interpreter_and_embedder_state);
+    match (maybe_serialized_models) {
+        Result::Ok(serialized_models) => {
+            let maybe_write_result = write_to_path(&path, &serialized_models); 
+            match (maybe_write_result) {
+                Result::Ok(_) => {
+                    println!("Successfully wrote out models");
+                },
+                Result::Err(err) => {
+                    println!("Failed to write out models: {}", err);
+                }
+            }
+        },
+        Result::Err(err) => {
+            println!("Serialization error: {}", err);
+        }
+    }
 }
 
 pub fn handle_load_models(path : String, context_state : &mut ContextState, bindings : &mut Bindings) {
-    //TODO: implement
-    panic!();
+    let maybe_path_contents = read_from_path(&path);
+    match (maybe_path_contents) {
+        Result::Ok(path_contents) => {
+            let maybe_models = bincode::deserialize::<SerializedInterpreterAndEmbedderState>(&path_contents);
+            match (maybe_models) {
+                Result::Ok(models) => {
+                    context_state.interpreter_and_embedder_state = models;
+                    bindings.clear();
+                    println!("Successfully loaded models");
+                },
+                Result::Err(err) => {
+                    println!("Deserialization error: {}", err);
+                }
+            }
+        },
+        Result::Err(err) => {
+            println!("Failed to read contents of path: {}", err);
+        }
+    }
 }
 
 
@@ -160,10 +201,10 @@ pub fn handle_save_context(path : String, context_state : &ContextState) {
     let maybe_write_result = write_to_path(&path, &context_state.ctxt_bytes); 
     match (maybe_write_result) {
         Result::Ok(_) => {
-            println!("Successfully wrote out context JSON");
+            println!("Successfully wrote out context");
         },
         Result::Err(err) => {
-            println!("Failed to write out context JSON: {}", err);
+            println!("Failed to write out context: {}", err);
         }
     }
 }
@@ -182,8 +223,8 @@ pub fn write_to_path(path : &str, contents : &[u8]) -> Result<(), String> {
     }
 }
 
-pub fn read_from_path(path : String) -> Result<Vec<u8>, String> {
-    let maybe_canonical_path = shellexpand::full(&path);
+pub fn read_from_path(path : &str) -> Result<Vec<u8>, String> {
+    let maybe_canonical_path = shellexpand::full(path);
     match (maybe_canonical_path) {
         Result::Ok(canonical_path) => {
             let maybe_path_contents = fs::read(&*canonical_path);
@@ -197,7 +238,7 @@ pub fn read_from_path(path : String) -> Result<Vec<u8>, String> {
 }
 
 pub fn handle_load_context(path : String, glob_state : &mut GlobalState) {
-    let maybe_path_contents = read_from_path(path);
+    let maybe_path_contents = read_from_path(&path);
     match (maybe_path_contents) {
         Result::Err(err) => {
             println!("Load Context: IO Error: {}", err);
@@ -217,7 +258,7 @@ pub fn handle_load_context(path : String, glob_state : &mut GlobalState) {
 }
 
 pub fn handle_generate_context(path : String, glob_state : &mut GlobalState) {
-    let maybe_path_contents = read_from_path(path);
+    let maybe_path_contents = read_from_path(&path);
     match (maybe_path_contents) {
         Result::Err(err) => {
             println!("Generate Context: IO Error: {}", err);

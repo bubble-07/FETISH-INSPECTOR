@@ -44,7 +44,9 @@ impl ContextState {
         }
     }
 
-    pub fn eval(&mut self, app_expr : Expression) -> Result<TermReference, String> {
+    pub fn perform_on_models<F, R>(&mut self, func : F) -> R
+           where F : FnOnce(&mut InterpreterAndEmbedderState) -> R {
+
         let placeholder_interpreter_and_embedder_state = ContextState::make_empty_interpreter_and_embedder_state(); 
 
         let serialized_interpreter_and_embedder_state = mem::replace(&mut self.interpreter_and_embedder_state,
@@ -52,13 +54,25 @@ impl ContextState {
 
         let mut interpreter_and_embedder_state = serialized_interpreter_and_embedder_state.deserialize(&self.ctxt);
 
-        let ret = interpreter_and_embedder_state.evaluate_expression(app_expr);
+        let ret = func(&mut interpreter_and_embedder_state);
 
         let serialized_interpreter_and_embedder_state = interpreter_and_embedder_state.serialize();
 
         mem::replace(&mut self.interpreter_and_embedder_state, serialized_interpreter_and_embedder_state);
 
         ret
+    }
+
+    pub fn eval(&mut self, app_expr : Expression) -> Result<TermReference, String> {
+        self.perform_on_models(|interpreter_and_embedder_state| 
+                                interpreter_and_embedder_state.evaluate_expression(app_expr))
+    }
+    pub fn update_models(&mut self) {
+        self.perform_on_models(|interpreter_and_embedder_state|
+                               {
+                                   interpreter_and_embedder_state.bayesian_update_step();
+                                   interpreter_and_embedder_state.clear_newly_received();
+                               });
     }
 }
 

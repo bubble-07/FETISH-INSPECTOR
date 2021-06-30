@@ -7,6 +7,9 @@ pub struct Bindings {
 }
 
 impl Bindings {
+    pub fn clear(&mut self) {
+        self.bindings.clear();
+    }
     pub fn write(&mut self, identifier : String, term_ref : TermReference) {
         self.bindings.insert(identifier, term_ref);
     }
