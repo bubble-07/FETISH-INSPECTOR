@@ -93,24 +93,21 @@ pub fn parse_reference<'a>(text : &'a str) -> Result<(TermReference, &'a str), S
         Option::None => Result::Err(format!("Missing pound sign for reference: {}", text)),
         Option::Some(without_pound_sign) => {
             let maybe_first_nonnumeral_index = without_pound_sign.find(|c : char| !c.is_digit(10));
-            match (maybe_first_nonnumeral_index) {
-                Option::None => Result::Err(format!("Ran out of input while parsing reference: {}", text)),
-                Option::Some(first_nonnumeral_index) => {
-                    let (prefix_numeral_str, suffix) = without_pound_sign.split_at(first_nonnumeral_index);
-                    let type_number : usize = str::parse(prefix_numeral_str).unwrap();
-                    if (suffix.starts_with('[')) {
-                        let (vec, remaining_text) = parse_vector(suffix)?;
-                        Result::Ok((TermReference::VecRef(type_number, vec), remaining_text))
-                    } else {
-                        let (term_index, remaining_text) = parse_term_index(suffix)?;
-                        let term_ptr = TermPointer {
-                            type_id : type_number,
-                            index : term_index
-                        };
-                        Result::Ok((TermReference::FuncRef(term_ptr), remaining_text))
-                    } 
-                }
-            }
+            let first_nonnumeral_index = maybe_first_nonnumeral_index.unwrap_or(without_pound_sign.len());
+
+            let (prefix_numeral_str, suffix) = without_pound_sign.split_at(first_nonnumeral_index);
+            let type_number : usize = str::parse(prefix_numeral_str).unwrap();
+            if (suffix.starts_with('[')) {
+                let (vec, remaining_text) = parse_vector(suffix)?;
+                Result::Ok((TermReference::VecRef(type_number, vec), remaining_text))
+            } else {
+                let (term_index, remaining_text) = parse_term_index(suffix)?;
+                let term_ptr = TermPointer {
+                    type_id : type_number,
+                    index : term_index
+                };
+                Result::Ok((TermReference::FuncRef(term_ptr), remaining_text))
+            } 
         }
     }    
 }
@@ -123,19 +120,16 @@ pub fn parse_term_index<'a>(text : &'a str) -> Result<(TermIndex, &'a str), Stri
     let starting_char = if (is_primitive) {'p'} else {'n'};
     let starting_with_numeral = text.strip_prefix(starting_char).unwrap();
     let maybe_first_nonnumeral_index = starting_with_numeral.find(|c : char| !c.is_digit(10));
-    match (maybe_first_nonnumeral_index) {
-        Option::None => Result::Err(format!("Ran out of input while parsing term index: {}", text)),
-        Option::Some(first_nonnumeral_index) => {
-            let (prefix_numeral_str, suffix) = starting_with_numeral.split_at(first_nonnumeral_index);
-            let term_number : usize = str::parse(prefix_numeral_str).unwrap();
-            let term_index = if (is_primitive) {
-                                TermIndex::Primitive(term_number)
-                             } else {
-                                TermIndex::NonPrimitive(term_number)
-                             };
-            Result::Ok((term_index, suffix))
-        }
-    }
+    let first_nonnumeral_index = maybe_first_nonnumeral_index.unwrap_or(starting_with_numeral.len());
+
+    let (prefix_numeral_str, suffix) = starting_with_numeral.split_at(first_nonnumeral_index);
+    let term_number : usize = str::parse(prefix_numeral_str).unwrap();
+    let term_index = if (is_primitive) {
+                        TermIndex::Primitive(term_number)
+                     } else {
+                        TermIndex::NonPrimitive(term_number)
+                     };
+    Result::Ok((term_index, suffix))
 }
 
 pub fn parse_vector<'a>(text : &'a str) -> Result<(Array1<R32>, &'a str), String> {
@@ -175,14 +169,11 @@ pub fn parse_vector<'a>(text : &'a str) -> Result<(Array1<R32>, &'a str), String
 
 pub fn parse_identifier<'a>(text : &'a str, bindings : &Bindings) -> Result<(TermReference, &'a str), String> {
     let maybe_identifier_end_index = text.find(|c : char| c.is_whitespace() || c == ')');
-    match (maybe_identifier_end_index) {
-        Option::None => Result::Err(format!("Ran out of input while parsing identifier: {}", text)),
-        Option::Some(identifier_end_index) => {
-            let (identifier_content_str, suffix) = text.split_at(identifier_end_index);
-            let term_ref = bindings.lookup(identifier_content_str)?;
-            Result::Ok((term_ref, suffix))
-        } 
-    }
+    let identifier_end_index = maybe_identifier_end_index.unwrap_or(text.len());
+
+    let (identifier_content_str, suffix) = text.split_at(identifier_end_index);
+    let term_ref = bindings.lookup(identifier_content_str)?;
+    Result::Ok((term_ref, suffix))
 }
 
 pub fn parse_atom<'a>(text : &'a str, bindings : &Bindings) -> Result<(Expression, &'a str), String> {
