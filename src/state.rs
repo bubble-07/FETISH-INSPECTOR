@@ -2,6 +2,7 @@ use crate::bindings::*;
 use crate::loading::*;
 use fetish_lib::everything::*;
 use crate::expression::*;
+use crate::simulate::*;
 use std::collections::HashMap;
 use std::mem;
 
@@ -58,9 +59,14 @@ impl ContextState {
 
         let serialized_interpreter_and_embedder_state = interpreter_and_embedder_state.serialize();
 
-        mem::replace(&mut self.interpreter_and_embedder_state, serialized_interpreter_and_embedder_state);
+        self.interpreter_and_embedder_state = serialized_interpreter_and_embedder_state;
 
         ret
+    }
+
+    pub fn simulate(&mut self, app_expr : Expression) -> Result<TypedVector, String> {
+        self.perform_on_models(|interpreter_and_embedder_state|
+                               interpreter_and_embedder_state.simulate_expression(app_expr))
     }
 
     pub fn eval(&mut self, app_expr : Expression) -> Result<TermReference, String> {

@@ -153,7 +153,6 @@ pub fn handle_list_primitive_terms(type_text : String, context_state : &ContextS
             }
         }
     }
-    let ctxt = &context_state.ctxt;
 }
 
 pub fn handle_list_types(context_state : &ContextState) {
@@ -166,8 +165,24 @@ pub fn handle_list_types(context_state : &ContextState) {
 }
 
 pub fn handle_simulate(expr_text : String, context_state : &mut ContextState, bindings : &Bindings) {
-    //TODO: Implement me!
-    panic!();
+    let parse_result = parse_atom(&expr_text, bindings);
+    match (parse_result) {
+        Result::Err(err) => {
+            println!("Simulate: Expression Parsing Error: {}", err);
+        },
+        Result::Ok((expr, _)) => {
+            let maybe_result_vec = context_state.simulate(expr);
+            match (maybe_result_vec) {
+                Result::Err(err) => {
+                    println!("Simulate: evaluation error: {}", err);
+                },
+                Result::Ok(result_vec) => {
+                    let result_string = format_typed_vector(&result_vec);
+                    println!("{}", &result_string);
+                }
+            }
+        }
+    }
 }
 
 pub fn handle_evaluate(expr_text : String, context_state : &mut ContextState, bindings : &mut Bindings) {

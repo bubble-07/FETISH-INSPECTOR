@@ -16,8 +16,8 @@ pub enum Expression {
 
 #[derive(Clone)]
 pub struct AppExpression {
-    func_expr : Box<FuncExpression>,
-    arg_expr : Box<Expression>
+    pub func_expr : Box<FuncExpression>,
+    pub arg_expr : Box<Expression>
 }
 
 impl AppExpression {
@@ -57,6 +57,10 @@ pub fn format_term_ref(term_ref : &TermReference) -> String {
         TermReference::FuncRef(func_ptr) => format_term_ptr(func_ptr),
         TermReference::VecRef(type_id, vec) => format!("#{}{}", type_id, vec)
     }
+}
+
+pub fn format_typed_vector(typed_vector : &TypedVector) -> String {
+    format!("#{}{}", &typed_vector.type_id, &typed_vector.vec)
 }
 
 impl fmt::Display for FuncExpression {

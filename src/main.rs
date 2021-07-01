@@ -31,6 +31,7 @@ pub mod parsers;
 pub mod expression;
 pub mod bindings;
 pub mod loading;
+pub mod simulate;
 
 fn main() {
     let args : Vec<String> = env::args().collect();
